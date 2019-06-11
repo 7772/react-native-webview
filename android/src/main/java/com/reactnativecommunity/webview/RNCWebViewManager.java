@@ -71,6 +71,9 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import android.util.Log;
+import java.util.regex.*;
+
 /**
  * Manages instances of {@link WebView}
  * <p>
@@ -113,6 +116,9 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   // Use `webView.loadUrl("about:blank")` to reliably reset the view
   // state and release page resources (including any running JavaScript).
   protected static final String BLANK_URL = "about:blank";
+  protected static final String INTENT_URL_PREFIX = "intent://";
+  protected static final String PLAYSTORE_PATTERN = "(?<=package=)(.*?)(?=;)";
+  protected static final String PLAYSTORE_URL = "market://details?id=";
   protected WebViewConfig mWebViewConfig;
 
   protected RNCWebChromeClient mWebChromeClient = null;
@@ -621,20 +627,105 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
 
     @Override
     public boolean shouldOverrideUrlLoading(WebView view, String url) {
-      dispatchEvent(
-        view,
-        new TopShouldStartLoadWithRequestEvent(
-          view.getId(),
-          createWebViewEvent(view, url)));
-      return true;
+      if (view == null || url == null) {
+        Log.d("CustomLog", "Don't override shouldOverrideUrlLoading method because view or url is null.");
+        return;
+      }
+
+      if (url.startsWith(INTENT_URL_PREFIX)) {
+        handleIntent(view, url);
+        return true;
+      } else if (url.startsWith(PLAYSTORE_URL) || url.startsWith(MARKET_URL)) {
+        handlePlayStoreURL(view, url);
+        return true;
+      } else {
+        dispatchEvent(
+          view,
+          new TopShouldStartLoadWithRequestEvent(
+            view.getId(),
+            createWebViewEvent(view, url)));
+        return true;
+      }
     }
 
+    protected void handleIntent(WebView view, String url) {
+      if (view == null || url == null) {
+        Log.d("CustomLog", "Don't handle intent url because view or url is null."); 
+        return;
+      }
 
-    @TargetApi(Build.VERSION_CODES.N)
-    @Override
-    public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-      final String url = request.getUrl().toString();
-      return this.shouldOverrideUrlLoading(view, url);
+      Intent intent = null;
+
+      try {
+        intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+        if (intent != null) {
+          view.getContext().startActivity(intent);
+        }
+      } catch (URISyntaxException e) {
+        Log.d("CustomLog", "URISyntaxException " + e);
+      } catch (ActivityNotFoundException e) {
+        Log.d("CustomLog", "App that you try to run is not installed." + e);
+        moveToPlayStore(view, url);
+      }
+    }
+
+    protected void handlePlayStoreURL(WebView view, String url) {
+      if (view == null || url == null) {
+        Log.d("CustomLog", "Don't handle intent url because view or url is null.");  
+        return;
+      }
+    
+      try {
+        Uri uri = Uri.parse(url);
+        String packageName = uri.getQueryParameter("id");
+        if (packageName != null && !packageName.equals("")) {
+          Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(MARKET_URL + packageName));
+          view.getContext().startActivity(intent);
+        }        
+      } catch (Exception e) {
+        Log.d("CustomLog", "ERROR: " + e);        
+      }
+    }
+    
+    protected void moveToPlayStore(WebView view, String url) {
+      if (view == null || url == null) {
+        Log.d("CustomLog", "Don't move to playstore because view or url is null."); 
+        return;
+      }
+
+      try {
+        String packageName = getPackageNameFromIntent(url);
+        if (packageName != null) {
+          String marketUrl = MARKET_URL + packageName;
+          Intent marketIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(marketUrl));
+          view.getContext().startActivity(marketIntent);
+        } 
+      } catch (Exception e) {
+        Log.d("CustomLog", "Don't move to playstore ERROR : " + e);
+      }
+    }
+
+    protected String getPackageNameFromIntent(String url) {
+      if (url == null) {
+        Log.d("CustomLog", "Don't get package name from intent because url is null.");
+        return null;
+      }
+
+      try {
+        String packageName = null;
+        Pattern pattern = Pattern.compile(PLAYSTORE_PATTERN);
+        Matcher matcher = pattern.matcher(url);
+        
+        if (!matcher.find()) {
+          return null;
+        }
+
+        packageName = matcher.group(1);
+        return packageName;        
+      } catch (Exception e) {
+        Log.d("CustomLog", "Dont' get package name, ERROR : " + e);
+        return null;
+      }
     }
 
     @Override
