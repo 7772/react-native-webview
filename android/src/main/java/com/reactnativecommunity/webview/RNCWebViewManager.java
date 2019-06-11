@@ -10,7 +10,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
-import androidx.annotation.RequiresApi;
+import android.support.annotation.RequiresApi;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -649,7 +649,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     public boolean shouldOverrideUrlLoading(WebView view, String url) {
       if (view == null || url == null) {
         Log.d("CustomLog", "Don't override shouldOverrideUrlLoading method because view or url is null.");
-        return;
+        return false;
       }
 
       if (url.startsWith(INTENT_URL_PREFIX)) {
