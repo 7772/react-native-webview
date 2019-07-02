@@ -1,5 +1,7 @@
 # react-native-webview #v6.2.2-intent
 
+## 설치방법
+
 **0. package.json 의 dependencies 를 모두 설치할 때** 
 
 ```
@@ -28,4 +30,9 @@
 
 **7. `rm -rf node_modules/react-native-webview/node_modules/react-native/`**
 
-**8. `react-native run-android`**
+**8. `react-native run-android` or** 
+
+```
+  $ cd ios && pod install && cd .. 
+  $ react-native run-ios
+```
